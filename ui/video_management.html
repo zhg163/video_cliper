@@ -317,7 +317,7 @@
             formData.append('description', descriptionInput.value || '无描述');
 
             try {
-                const response = await fetch('http://server.lovedraw.cn:18622/video_cliper/upload_video', {
+                const response = await fetch('/video_cliper/upload_video', {
                     method: 'POST',
                     body: formData,
                 });
