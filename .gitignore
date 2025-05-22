@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+
+# Logs and uploads
+log/
+*.log
+uploads/
+
+# Other temporary files
+*.tmp
+*.swp

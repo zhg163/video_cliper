@@ -1,0 +1,12 @@
+numpy
+moviepy==1.0.3
+fastapi
+uvicorn
+requests
+loguru
+google-generativeai
+dashscope
+pymilvus==2.5.6
+grpcio==1.67.1
+python-dotenv==1.0.1
+opencv-python
