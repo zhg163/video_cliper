@@ -159,6 +159,7 @@
         // 获取文件输入和描述输入元素
         const videoFileInput = document.getElementById('videoFile');
         const videoDescriptionInput = document.getElementById('videoDescription');
+        const uploadButton = uploadForm.querySelector('button[type="submit"]'); // 获取上传按钮
 
         // 为文件输入添加change事件监听器
         videoFileInput.addEventListener('change', (event) => {
@@ -342,6 +343,10 @@
             formData.append('file', fileInput.files[0]);  // 注意参数名改为'file'
             formData.append('description', descriptionInput.value || '无描述');
 
+            // 禁用按钮并更新文本
+            uploadButton.disabled = true;
+            uploadButton.innerText = '上传中...';
+
             try {
                 const response = await fetch('/video_cliper/upload_video', {
                     method: 'POST',
@@ -365,6 +370,10 @@
             } catch (error) {
                 console.error('Error uploading video:', error);
                 alert(`视频上传失败: ${error.message}`);
+            } finally {
+                // 恢复按钮状态
+                uploadButton.disabled = false;
+                uploadButton.innerText = '开始上传';
             }
         });
 
