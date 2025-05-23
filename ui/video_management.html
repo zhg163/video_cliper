@@ -126,7 +126,7 @@
         async function fetchVideosAPI(searchTerm = '') {
             try {
                 // Modify the API endpoint and parameters as needed
-                const response = await fetch(`http://localhost:18622/video_cliper/list_videos`);
+                const response = await fetch(`/video_cliper/list_videos`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -247,7 +247,7 @@
                 // Example: Delete video from backend
                 try {
                     // Assuming a DELETE endpoint like /video_cliper/delete_video/{id}
-                    const response = await fetch(`http://localhost:18622/video_cliper/del_video`, {
+                    const response = await fetch(`/video_cliper/del_video`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -288,7 +288,7 @@
 
         window.editVideo = async function (videoId) {
             try {
-                const response = await fetch('http://localhost:18622/video_cliper/start_video_cliper', {
+                const response = await fetch('/video_cliper/start_video_cliper', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -343,7 +343,7 @@
             formData.append('description', descriptionInput.value || '无描述');
 
             try {
-                const response = await fetch('http://localhost:18622/video_cliper/upload_video', {
+                const response = await fetch('/video_cliper/upload_video', {
                     method: 'POST',
                     body: formData,
                 });
