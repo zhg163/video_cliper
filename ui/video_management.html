@@ -117,42 +117,34 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const mockVideos = [
-            { id: 1, name: 'Big Buck Bunny.mp4', description: '一个巨大的兔子和他三个讨厌的邻居的故事。', uploadTime: '2024-05-20 10:00:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' },
-            { id: 2, name: 'Elephants Dream.mp4', description: 'Blender基金会的第一个开放电影项目。', uploadTime: '2024-05-19 14:30:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' },
-            { id: 3, name: 'For Bigger Blazes.mp4', description: 'HBO GO现在与Chromecast配合使用。', uploadTime: '2024-05-18 09:15:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
-            { id: 4, name: 'For Bigger Escapes.mp4', description: '介绍Chromecast，在电视上欣赏在线视频和音乐的最简单方法。', uploadTime: '2024-05-17 18:00:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4' },
-            { id: 5, name: 'For Bigger Fun.mp4', description: '在电视上欣赏在线视频和音乐的最简单方法。', uploadTime: '2024-05-16 20:00:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4' },
-            { id: 6, name: 'For Bigger Joyrides.mp4', description: '体验更大的乐趣旅程。', uploadTime: '2024-05-15 11:00:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4' },
-            { id: 7, name: 'For Bigger Meltdowns.mp4', description: '让Buster的大崩溃变得更大。', uploadTime: '2024-05-14 22:30:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4' },
-            // 为了保持10个条目，可以重复使用或者寻找更多链接，这里暂时重复几个
-            { id: 8, name: 'Sintel.mp4', description: 'Blender基金会的另一个开放电影。', uploadTime: '2024-05-13 13:45:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4' },
-            { id: 9, name: 'Subaru Outback On Street And Dirt.mp4', description: '斯巴鲁傲虎在街道和泥地上的表现。', uploadTime: '2024-05-12 16:00:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4' },
-            { id: 10, name: 'Tears of Steel.mp4', description: 'Blender基金会的科幻短片。', uploadTime: '2024-05-11 19:20:00', originalUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4', editedUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4' },
-        ];
-
-        let currentVideos = [...mockVideos];
+        let allVideos = []; // Store all videos fetched from backend
+        let currentVideos = []; // Videos currently displayed (after search/pagination)
         let currentPage = 1;
         const itemsPerPage = 5;
 
-        // Example: Fetch videos from backend
-        // async function fetchVideosAPI(page = 1, limit = itemsPerPage, searchTerm = '') {
-        //     try {
-        //         const response = await fetch(`/api/videos?page=${page}&limit=${limit}&search=${searchTerm}`);
-        //         if (!response.ok) {
-        //             throw new Error(`HTTP error! status: ${response.status}`);
-        //         }
-        //         const data = await response.json(); // Assuming backend returns { videos: [], totalPages: X, currentPage: Y }
-        //         currentVideos = data.videos;
-        //         currentPage = data.currentPage;
-        //         displayPage(); // Update table and pagination based on API response
-        //     } catch (error) {
-        //         console.error('Error fetching videos:', error);
-        //         alert('无法加载视频列表，请稍后再试。');
-        //     }
-        // }
-        // // Initial load from API (example)
-        // fetchVideosAPI();
+        // Fetch videos from backend
+        async function fetchVideosAPI(searchTerm = '') {
+            try {
+                // Modify the API endpoint and parameters as needed
+                const response = await fetch(`http://localhost:18622/video_cliper/list_videos`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                if (data.success) {
+                    allVideos = data.data; // Assuming backend returns { success: true, data: [...] }
+                    applySearchAndPagination(searchTerm);
+                } else {
+                    console.error('Backend returned error:', data.msg);
+                    alert('无法加载视频列表：' + data.msg);
+                }
+            } catch (error) {
+                console.error('Error fetching videos:', error);
+                alert('无法加载视频列表，请稍后再试。');
+            }
+        }
+        // Initial load from API
+        fetchVideosAPI();
 
 
         const videoTableBody = document.getElementById('videoTableBody');
@@ -163,6 +155,20 @@
         const videoPlayer = document.getElementById('videoPlayer');
         const videoPlayerDescription = document.getElementById('videoPlayerDescription');
         const videoPlayerModal = new bootstrap.Modal(document.getElementById('videoPlayerModal'));
+
+        // 获取文件输入和描述输入元素
+        const videoFileInput = document.getElementById('videoFile');
+        const videoDescriptionInput = document.getElementById('videoDescription');
+
+        // 为文件输入添加change事件监听器
+        videoFileInput.addEventListener('change', (event) => {
+            // 获取选中的文件
+            const file = event.target.files[0];
+            if (file) {
+                // 将文件名填充到文件描述输入框
+                videoDescriptionInput.value = file.name;
+            }
+        });
 
         function renderTable(videosToRender) {
             videoTableBody.innerHTML = '';
@@ -177,10 +183,18 @@
                         <td>${video.description}</td>
                         <td>${video.uploadTime}</td>
                         <td class="action-buttons">
-                            <button class="btn btn-sm btn-danger" onclick="deleteVideo(${video.id})">删除</button>
-                            <button class="btn btn-sm btn-info" onclick="playVideo('${video.name}', '${video.description}', '${video.originalUrl}', '原视频')">原视频</button>
-                            <button class="btn btn-sm btn-warning" onclick="playVideo('${video.name}', '${video.description}', '${video.editedUrl}', '剪辑后')">剪辑后</button>
-                            <button class="btn btn-sm btn-secondary" onclick="editVideo(${video.id})">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteVideo('${video.id}')">删除</button>
+                            <button class="btn btn-sm btn-info" onclick="playVideo('${video.name}', '${video.description}', '${video.originalUrl}', '${video.editedUrl}', '原视频')">原视频</button>
+                            ${video.status === '2' ?
+                        `<button class="btn btn-sm btn-warning" onclick="playVideo('${video.name}', '${video.description}', '${video.originalUrl}', '${video.editedUrl}', '剪辑后')">剪辑后</button>` :
+                        video.status === '1' ?
+                            `<button class="btn btn-sm btn-secondary" disabled>处理中</button>` :
+                            video.status === '3' ?
+                                `<button class="btn btn-sm btn-warning" onclick="editVideo('${video.id}')">处理失败重新剪辑</button>` :
+                                video.status === '0' ?
+                                    `<button class="btn btn-sm btn-warning" onclick="editVideo('${video.id}')">剪辑</button>` :
+                                    '' // Default case
+                    }
                         </td>
                     </tr>
                 `;
@@ -210,7 +224,12 @@
             }
         }
 
-        function displayPage() {
+        function applySearchAndPagination(searchTerm = '') {
+            const filteredVideos = allVideos.filter(video =>
+                video.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                video.description.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            currentVideos = filteredVideos;
             const startIndex = (currentPage - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
             const paginatedVideos = currentVideos.slice(startIndex, endIndex);
@@ -218,60 +237,47 @@
             renderPagination(currentVideos.length);
         }
 
+        function displayPage() {
+            // This function is now mainly for pagination after search
+            applySearchAndPagination(searchInput.value);
+        }
+
         window.deleteVideo = async function (id) { // Changed to async for API call example
             if (confirm('确定要删除这个视频吗？')) {
                 // Example: Delete video from backend
-                // try {
-                //     const response = await fetch(`/api/videos/${id}`, {
-                //         method: 'DELETE',
-                //     });
-                //     if (!response.ok) {
-                //         const errorData = await response.json(); // Or response.text()
-                //         throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.detail || response.statusText}`);
-                //     }
-                //     // If successful, update local data and re-render
-                //     const videoIndex = mockVideos.findIndex(v => v.id === id);
-                //     if (videoIndex > -1) mockVideos.splice(videoIndex, 1);
-                //     const currentVideoIndex = currentVideos.findIndex(v => v.id === id);
-                //     if (currentVideoIndex > -1) currentVideos.splice(currentVideoIndex, 1);
-                //     
-                //     const totalPages = Math.ceil(currentVideos.length / itemsPerPage);
-                //     if (currentPage > totalPages && totalPages > 0) {
-                //         currentPage = totalPages;
-                //     }
-                //     if (currentVideos.length === 0) {
-                //         currentPage = 1;
-                //     }
-                //     displayPage();
-                //     alert('视频已成功从服务器删除');
-                // } catch (error) {
-                //     console.error('Error deleting video:', error);
-                //     alert(`删除视频失败: ${error.message}`);
-                // }
-                // return; // End execution here if using real API
+                try {
+                    // Assuming a DELETE endpoint like /video_cliper/delete_video/{id}
+                    const response = await fetch(`http://localhost:18622/video_cliper/del_video`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ origin_video_uid: id })
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json(); // Or response.text()
+                        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.detail || response.statusText}`);
+                    }
+                    const result = await response.json();
+                    if (result.success) {
+                        // If successful, refetch data and re-render
+                        fetchVideosAPI(searchInput.value); // Refetch with current search term
+                        alert('视频已成功删除');
+                    } else {
+                        alert(`删除视频失败: ${result.msg}`);
+                    }
 
-                // Current mock implementation:
-                const videoIndex = mockVideos.findIndex(v => v.id === id);
-                if (videoIndex > -1) mockVideos.splice(videoIndex, 1);
-
-                const currentVideoIndex = currentVideos.findIndex(v => v.id === id);
-                if (currentVideoIndex > -1) currentVideos.splice(currentVideoIndex, 1);
-
-                const totalPages = Math.ceil(currentVideos.length / itemsPerPage);
-                if (currentPage > totalPages && totalPages > 0) {
-                    currentPage = totalPages;
+                } catch (error) {
+                    console.error('Error deleting video:', error);
+                    alert(`删除视频失败: ${error.message}`);
                 }
-                if (currentVideos.length === 0) {
-                    currentPage = 1;
-                }
-                displayPage();
-                alert('视频已删除（前端模拟）');
             }
         }
 
-        window.playVideo = function (name, description, url, type) {
+        window.playVideo = function (name, description, originalUrl, editedUrl, type) {
             document.getElementById('videoPlayerModalLabel').innerText = `播放视频: ${name} (${type})`;
-            videoPlayer.src = url; // In a real app, ensure this URL is safe and valid
+            // Use the correct URL based on type
+            videoPlayer.src = type === '原视频' ? originalUrl : editedUrl; // In a real app, ensure this URL is safe and valid
             videoPlayerDescription.innerText = description;
             videoPlayerModal.show();
             // Handle cases where video might not load, e.g., placeholder or error message
@@ -280,19 +286,39 @@
             };
         }
 
-        window.editVideo = function (videoId) {
-            // 在实际应用中，这里会进行页面跳转或加载编辑界面
-            window.location.href = `/edit-video.html?id=${videoId}`;
+        window.editVideo = async function (videoId) {
+            try {
+                const response = await fetch('http://localhost:18622/video_cliper/start_video_cliper', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ origin_video_uid: videoId }) // Assuming backend expects origin_video_uid
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.detail || response.statusText}`);
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('视频剪辑任务已启动！');
+                    // Refetch video list to update status in the table
+                    fetchVideosAPI(searchInput.value);
+                } else {
+                    alert(`启动视频剪辑任务失败: ${result.msg}`);
+                }
+
+            } catch (error) {
+                console.error('Error starting video cliper:', error);
+                alert(`启动视频剪辑任务失败: ${error.message}`);
+            }
         }
 
         searchButton.addEventListener('click', () => {
-            const searchTerm = searchInput.value.toLowerCase();
-            currentVideos = mockVideos.filter(video =>
-                video.name.toLowerCase().includes(searchTerm) ||
-                video.description.toLowerCase().includes(searchTerm)
-            );
-            currentPage = 1;
-            displayPage();
+            currentPage = 1; // Reset to first page on new search
+            applySearchAndPagination(searchInput.value);
         });
 
         searchInput.addEventListener('keypress', (event) => {
@@ -317,7 +343,7 @@
             formData.append('description', descriptionInput.value || '无描述');
 
             try {
-                const response = await fetch('http://server.lovedraw.cn:18622/video_cliper/upload_video', {
+                const response = await fetch('http://localhost:18622/video_cliper/upload_video', {
                     method: 'POST',
                     body: formData,
                 });
@@ -328,10 +354,12 @@
                 }
 
                 const uploadedVideo = await response.json();
-                mockVideos.unshift(uploadedVideo); // 添加到主列表
-                currentVideos = [...mockVideos]; // 刷新当前视图
-                currentPage = 1;
-                displayPage();
+                // allVideos.unshift(uploadedVideo.data); // 添加到主列表，注意后端返回的数据结构
+                // applySearchAndPagination(searchInput.value); // 刷新当前视图，应用搜索和分页
+                // currentVideos = [...mockVideos]; // 刷新当前视图
+                // currentPage = 1;
+                fetchVideosAPI(searchInput.value); // Refetch with current search term
+                // displayPage();
                 uploadForm.reset();
                 alert('视频上传成功！');
             } catch (error) {
@@ -339,9 +367,6 @@
                 alert(`视频上传失败: ${error.message}`);
             }
         });
-
-        // Initial display
-        displayPage();
 
     </script>
 </body>

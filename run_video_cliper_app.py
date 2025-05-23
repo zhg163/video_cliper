@@ -113,13 +113,42 @@ def process_data_in_background(origin_video,video_cut_info):
     with open(json_path, "w", encoding='utf-8') as json_file:
         json.dump(video_cut_info, json_file, ensure_ascii=False, indent=4)
 
+    # 获取 origin_video_uid 并更新原始 video_info.json
+    # jq_folder 格式为 uploads/enquiry_num/cut_output/video_num
+    parts = jq_folder.split(os.sep)
+    if len(parts) >= 2:
+        origin_video_uid = video_num
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        origin_video_info_path = os.path.join(base_path, UPLOAD_DIR, origin_video_uid, "video_info.json")
+
+        if os.path.exists(origin_video_info_path):
+            try:
+                with open(origin_video_info_path, 'r', encoding='utf-8') as f:
+                    video_info = json.load(f)
+
+                # 更新原始 video_info 的状态和消息
+                video_info['status'] = video_cut_info['status']
+                video_info['msg'] = video_cut_info['msg']
+
+                with open(origin_video_info_path, 'w', encoding='utf-8') as f:
+                    json.dump(video_info, f, ensure_ascii=False, indent=4)
+                logger.info(f"已更新原始 video_info.json 状态为: {video_info['status']}")
+            except Exception as e:
+                logger.error(f"更新原始 video_info.json 出错: {str(e)}")
+        else:
+            logger.warning(f"原始 video_info.json 文件不存在: {origin_video_info_path}")
+    else:
+        logger.error(f"无法从路径解析 origin_video_uid: {jq_folder}")
+
     logger.info("完成裁剪。")
 
 app.mount("/ui", StaticFiles(directory="ui", html=True), name="ui")
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.post('/video_cliper/upload_video')
-async def upload_video(file: UploadFile = File(...)):
-
+async def upload_video(file: UploadFile = File(...),
+                       description: str = Body(embed=True, default="无描述", description="视频描述")
+                       ):
     # 验证文件大小
     if file.size > MAX_FILE_SIZE:
         raise HTTPException(
@@ -140,7 +169,7 @@ async def upload_video(file: UploadFile = File(...)):
     file_ext = os.path.splitext(file.filename)[1]  # 获取文件扩展名
     safe_filename = f"video_origin_{timestamp}{file_ext}"
     save_path = os.path.join(jq_folder, safe_filename)
-
+    logger.info(f"上传文件保存路径：{save_path}")
     try:
         # 保存文件
         with open(save_path, "wb") as buffer:
@@ -153,11 +182,13 @@ async def upload_video(file: UploadFile = File(...)):
             "enquiry_num": enquiry_num,
             "video_name": safe_filename,
             "video_path": save_path,
-            "create_time": current_time
-
+            "create_time": current_time,
+            "description": description,  # 使用传入的描述
+            "status": "0",  # 0 默认未处理 1 已处理 2 处理中 3 处理失败重新剪辑
         }
         # 将video_info保存为JSON文件
         json_path = os.path.join(jq_folder, "video_info.json")
+        logger.info(f"video_info保存路径：{json_path}")
         with open(json_path, "w",encoding="utf-8") as json_file:
             json.dump(video_info, json_file,ensure_ascii=False, indent=4)
 
@@ -176,6 +207,54 @@ async def upload_video(file: UploadFile = File(...)):
 
         return {"success": False, "code": 500, "msg": "视频上传失败：" + str(e), "data": {}}
 
+@app.get('/video_cliper/list_videos')
+async def list_videos():
+    videos = []
+    base_upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), UPLOAD_DIR)
+    for entry in os.listdir(base_upload_dir):
+        entry_path = os.path.join(base_upload_dir, entry)
+        if os.path.isdir(entry_path):
+            video_info_path = os.path.join(entry_path, 'video_info.json')
+            video_cut_info_path = os.path.join(entry_path, 'cut_output', 'video_cut_info.json')
+            if os.path.exists(video_info_path):
+                try:
+                    with open(video_info_path, 'r', encoding='utf-8') as f:
+                        video_info = json.load(f)
+
+                    # 尝试修复语法错误
+                    video_data = { # 尝试修复语法错误
+                        'id': video_info.get('enquiry_num'),
+                        'name': video_info.get('video_name'),
+                        'description': video_info.get('description', '无描述'), # Assuming description might be added later
+                        'uploadTime': video_info.get('create_time'),
+                        'originalUrl': f"/uploads/{video_info.get('enquiry_num')}/{video_info.get('video_name')}",
+                        'editedUrl': f"/uploads/{video_info.get('enquiry_num')}/cut_output/{video_info.get('enquiry_num')}_clip.mp4", # Assuming edited video name format
+                        'status': video_info.get('status') # 0 默认未处理 1 处理中 2 已处理  3 处理失败重新剪辑
+                    }
+
+                    # Check for cut_output info for edited video URL
+                    if os.path.exists(video_cut_info_path):
+                         with open(video_cut_info_path, 'r', encoding='utf-8') as f_cut:
+                            video_cut_info = json.load(f_cut)
+                            # Update editedUrl if a cut video exists and is successful
+                            if video_cut_info.get('status') == '2': # Assuming '2' means success
+                                video_data['editedUrl'] = f"/uploads/{video_info.get('enquiry_num')}/cut_output/{video_cut_info.get('video_num')}_clip.mp4"
+                            else:
+                                # If cut failed or not done, maybe use original or a placeholder
+                                video_data['editedUrl'] = video_data['originalUrl'] # Or handle differently
+
+                    videos.append(video_data)
+                except Exception as e:
+                    logger.error(f"Error reading video info from {video_info_path}: {e}")
+                    # Optionally skip or log the error for this entry
+
+    # Sort videos by upload time, newest first
+    videos.sort(key=lambda x: datetime.strptime(x['uploadTime'], '%Y-%m-%d %H:%M:%S'), reverse=True)
+
+    return {"success": True, "code": 200, "msg": "视频列表获取成功", "data": videos}
+
+
+
 
 @app.post('/video_cliper/start_video_cliper')
 async def start_video_cliper(
@@ -183,18 +262,25 @@ async def start_video_cliper(
         enquiry_num: str = Body(embed=True, default="", description="剪辑编号"),
         interval: int = Body(embed=True, default=3, description="每多少秒检测一帧"),
         user_prompt: str = Body(embed=True, default="", description="用户提示词"),
+        origin_video_uid: str = Body(embed=True, default="", description="原视频uid"),
 ):
     try:
         base_path = os.path.dirname(os.path.abspath(__file__))
-        video_info_path = base_path + f"/uploads/{enquiry_num}/video_info.json"
-        video_num = 'Video-' + str(uuid.uuid4())
-
+        video_info_path = os.path.join(base_path, UPLOAD_DIR, origin_video_uid, "video_info.json")
+        
+        logger.info(f"video_info_path: {video_info_path}")
         # 加载视频信息
         with open(video_info_path, 'r', encoding='utf-8') as f:
             video_info = json.load(f)
 
         origin_video = video_info['video_path']
+        video_num = video_info['enquiry_num']
 
+        # 更新 video_info 状态为处理中
+        video_info['status'] = '1'
+        with open(video_info_path, 'w', encoding='utf-8') as f:
+            json.dump(video_info, f, ensure_ascii=False, indent=4)
+        logger.info(f"更新 video_info 内容： {video_info}" )
         # 创建cut_output文件夹
         cut_output_folder = os.path.join(UPLOAD_DIR, enquiry_num, "cut_output")
         logger.info(f"cut_output_folder: {cut_output_folder}")
