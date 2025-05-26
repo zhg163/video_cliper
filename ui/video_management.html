@@ -115,6 +115,25 @@
         </div>
     </div>
 
+    <div class="modal fade" id="promptEditModal" tabindex="-1" aria-labelledby="promptEditModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="promptEditModalLabel">编辑提示词</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <textarea class="form-control" id="promptTextArea" rows="15"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="savePromptButton">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let allVideos = []; // Store all videos fetched from backend
@@ -156,6 +175,12 @@
         const videoPlayerDescription = document.getElementById('videoPlayerDescription');
         const videoPlayerModal = new bootstrap.Modal(document.getElementById('videoPlayerModal'));
 
+        // 获取模态框元素和相关控件
+        const promptEditModal = new bootstrap.Modal(document.getElementById('promptEditModal'));
+        const promptTextArea = document.getElementById('promptTextArea');
+        const savePromptButton = document.getElementById('savePromptButton');
+        let currentEditingVideoId = null; // 用于存储当前正在编辑的视频ID
+
         // 获取文件输入和描述输入元素
         const videoFileInput = document.getElementById('videoFile');
         const videoDescriptionInput = document.getElementById('videoDescription');
@@ -171,6 +196,30 @@
             }
         });
 
+        let videoPrompts = {}; // Store user prompts for each video ID
+        const defaultPrompt = `请你作为专业的视频内容分析助手，分析以下视频内容（字幕或转录文本），识别出其中的**精彩片段 / 高光时刻**。
+
+请根据不同类型的视频内容，智能判断高光的标准，并输出以下信息：
+
+### 一、分析目标
+
+* 精彩片段的起止时间（或关键时间点）
+* 简要描述该片段发生了什么
+* 此片段为何精彩（如：情节反转、情绪爆发、经典台词、特效震撼、笑点泪点、观点深刻等）
+
+### 二、识别标准（请根据视频类型智能适配）
+
+* **演讲/公开课**：观点集中、金句频出、听众反应强烈的部分
+* **新闻/纪录片**：信息密集、事件爆点、主持语气情绪波动的片段
+* **短剧/微短剧**：冲突高潮、剧情反转、笑点泪点、关键台词
+* **电影/电视剧**：高潮剧情、主线转折、视觉特效、经典场景、情绪爆发等
+* **动漫**：战斗变身、角色觉醒、视觉特效、名场面、情绪渲染等
+
+### 三、注意
+
+* 请确保输出精炼、有逻辑性，避免遗漏明显高光片段
+* 如信息不足，请注明“未找到明显高光”或“视频需补充完整转录内容”`;
+
         function renderTable(videosToRender) {
             videoTableBody.innerHTML = '';
             if (videosToRender.length === 0) {
@@ -178,6 +227,10 @@
                 return;
             }
             videosToRender.forEach(video => {
+                // Initialize prompt if not already set
+                if (!videoPrompts[video.id]) {
+                    videoPrompts[video.id] = defaultPrompt;
+                }
                 const row = `
                     <tr>
                         <td>${video.name}</td>
@@ -186,6 +239,7 @@
                         <td class="action-buttons">
                             <button class="btn btn-sm btn-danger" onclick="deleteVideo('${video.id}')">删除</button>
                             <button class="btn btn-sm btn-info" onclick="playVideo('${video.name}', '${video.description}', '${video.originalUrl}', '${video.editedUrl}', '原视频')">原视频</button>
+                            <button class="btn btn-sm btn-secondary edit-prompt-btn" data-video-id="${video.id}">编辑提示词</button>
                             ${video.status === '2' ?
                         `<button class="btn btn-sm btn-warning" onclick="playVideo('${video.name}', '${video.description}', '${video.originalUrl}', '${video.editedUrl}', '剪辑后')">剪辑后</button>` :
                         video.status === '1' ?
@@ -201,7 +255,26 @@
                 `;
                 videoTableBody.innerHTML += row;
             });
+            // Add event listeners for edit prompt buttons after rendering
+            document.querySelectorAll('.edit-prompt-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const videoId = event.target.dataset.videoId;
+                    currentEditingVideoId = videoId; // 设置当前编辑的视频ID
+                    const currentPrompt = videoPrompts[videoId] || defaultPrompt;
+                    promptTextArea.value = currentPrompt; // 将当前提示词填充到文本域
+                    promptEditModal.show(); // 显示模态框
+                });
+            });
         }
+
+        // 保存提示词按钮的点击事件
+        savePromptButton.addEventListener('click', () => {
+            if (currentEditingVideoId) {
+                videoPrompts[currentEditingVideoId] = promptTextArea.value;
+                alert('提示词已更新！');
+                promptEditModal.hide(); // 隐藏模态框
+            }
+        });
 
         function renderPagination(totalItems) {
             paginationUl.innerHTML = '';
@@ -288,13 +361,14 @@
         }
 
         window.editVideo = async function (videoId) {
+            const userPrompt = videoPrompts[videoId] || defaultPrompt; // Get the prompt for this video
             try {
                 const response = await fetch('/video_cliper/start_video_cliper', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ origin_video_uid: videoId }) // Assuming backend expects origin_video_uid
+                    body: JSON.stringify({ origin_video_uid: videoId, user_prompt: userPrompt }) // Include user_prompt
                 });
 
                 if (!response.ok) {
